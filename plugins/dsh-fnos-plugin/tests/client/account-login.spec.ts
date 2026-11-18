@@ -164,7 +164,7 @@ describe('账号登录：只补官方缺的那一屏', () => {
     expect(excludeAt).toBeLessThan(matchAt)
   })
 
-  it('认「登录 DeepSeek 账号」「登录」，不认「开始使用」', () => {
+  it('认「登录 DeepSeek 账号」「等待登录」，不认单字「登录」与「开始使用」', () => {
     /*
       官方两处文案撞车：
         - `ui-settings-account` 登录框**标题**：开始使用
@@ -172,11 +172,15 @@ describe('账号登录：只补官方缺的那一屏', () => {
 
       用「开始使用」当判据会把**引导弹框**一起认成登录框——用户第一次打开应用
       就被塞一个粘贴回调地址的框。所以只认登录框独有的文案。
+
+      单字「登录」同样不能再当判据：插件装卸载、配置类弹框里只要出现这个词，
+      屏幕就会被顶成「填写重定向地址」，而用户根本没想登录。
+      官方那两个屏各有一句独有长文案，够用。
     */
     const overlay = readFileSync(new URL('../../src/components/FnosAccountLoginOverlay.tsx', import.meta.url), 'utf8')
     expect(overlay).toContain("'登录 DeepSeek 账号'")
-    expect(overlay).toContain("'登录'")
     expect(overlay).toContain("'等待登录'")
+    expect(overlay).not.toContain("'登录',")
     // 引导弹框的文案不能出现在判据里。
     expect(overlay).not.toContain("'开始使用'")
     expect(overlay).not.toContain("'Get started'")
@@ -347,5 +351,43 @@ describe('账号登录：契约', () => {
   it('路由前缀与其他插件路由一致', () => {
     expect(CONTRACT).toContain("'/plugins/dsh-fnos/account/login-relay'")
     expect(CONTRACT).toContain("'/plugins/dsh-fnos/account/login-start'")
+  })
+})
+
+describe('账号登录：发起请求带合法的调用方身份', () => {
+  it('startSignIn 的第一个参数是对象，不是字符串', () => {
+    /*
+      官方拿它组装 `x-client-version` / `x-client-locale` /
+      `x-client-timezone-offset`，对 `locale` 调 `toLowerCase()`。传字符串
+      （早前是 `'web'`）会在发请求前抛 `Cannot read properties of undefined
+      (reading 'toLowerCase')`，登录发起路由一律 500，一个授权地址都生成不出来。
+    */
+    expect(HOST).not.toMatch(/startSignIn\('web'/u)
+    expect(HOST).toContain('await service.startSignIn(accountClient()')
+  })
+
+  it('调用方身份带齐官方要的三个字段', () => {
+    const body = HOST.match(/function accountClient\(\): AccountClientLike \{([\s\S]*?)\n\}/u)?.[1] ?? ''
+    expect(body).toContain('version:')
+    expect(body).toContain("locale: 'zh-CN'")
+    // 东八区为 28800；取本机偏移，不在源码里写死某个时区。
+    expect(body).toContain('-new Date().getTimezoneOffset() * 60')
+  })
+})
+
+describe('账号登录：不误伤无关弹框', () => {
+  const OVERLAY = readFileSync(new URL('../../src/components/FnosAccountLoginOverlay.tsx', import.meta.url), 'utf8')
+  const markers = OVERLAY.match(/const SIGN_IN_MARKERS = \[([\s\S]*?)\n\]/u)?.[1] ?? ''
+
+  it('判据里没有单字「登录」/「Sign in」', () => {
+    /*
+      单字判据会把**任何**带这个词的对话框都当成官方登录框——插件装卸载、配置类
+      弹框里出现「登录」，屏幕就被顶成「填写重定向地址」，而用户根本没想登录。
+    */
+    const entries = [...markers.matchAll(/'([^'\n]*)'/gu)].map(m => m[1])
+    expect(entries.length).toBeGreaterThan(0)
+    for (const entry of entries) expect(['登录', 'Sign in', 'Anmelden']).not.toContain(entry)
+    // 中文那条只剩长句。
+    expect(entries).toContain('登录 DeepSeek 账号')
   })
 })

@@ -42,9 +42,45 @@ const LOOPBACK_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):\d+$/
  * 形状，官方没有导出对应的公开类型，用结构描述可以让「接口变了」在编译期暴露。
  */
 export interface AccountServiceLike {
-  startSignIn: (client: string, callbackOrigin: string, source: string) => Promise<unknown>
+  startSignIn: (client: AccountClientLike, callbackOrigin: string, source: string) => Promise<unknown>
   getState: () => Promise<unknown>
   cancel?: () => Promise<unknown>
+}
+
+/**
+ * 官方 `startSignIn` 的第一个参数（调用方身份）。
+ *
+ * **不是字符串**：官方拿它组装 `x-client-version` / `x-client-locale` /
+ * `x-client-timezone-offset` 三个请求头，`locale` 会先过一遍
+ * `locale.toLowerCase()`。传字符串（早前这里写的是 `'web'`）会在发请求之前就抛
+ * `Cannot read properties of undefined (reading 'toLowerCase')`，登录发起路由一律 500，
+ * 一个授权地址都生成不出来。
+ */
+export interface AccountClientLike {
+  /** DSH 客户端版本；官方只要求非空。 */
+  version: string
+  /** 界面语言，如 `zh-CN`；官方归约为 `zh_CN` / `en_US`。 */
+  locale: string
+  /** UTC 偏移（秒），东八区为 `28800`。 */
+  timezoneOffsetSeconds: number
+}
+
+/**
+ * 由宿主发起的登录尝试所用的调用方身份。
+ *
+ * 这条路由由服务端主动调用，手上没有浏览器的 `Accept-Language`，也不该把某个
+ * 用户的语言写进一次共享的登录申请，所以固定报中性值：版本显式留给服务端看，
+ * 语言按 fnOS 默认的中文界面，时区取本机当前偏移。
+ *
+ * @returns 一次登录申请使用的调用方身份。
+ */
+function accountClient(): AccountClientLike {
+  return {
+    /* 这条调用不来自某个浏览器构建，报一个显式而非伪造的版本号。 */
+    version: '0.0.0-server',
+    locale: 'zh-CN',
+    timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60,
+  }
 }
 
 /**
@@ -167,7 +203,7 @@ export function registerAccountLoginRelay(ctx: Context): void {
         if (port === undefined || !Number.isSafeInteger(port) || port <= 0) {
           return send(res, 503, { error: 'web-port-unavailable' })
         }
-        await service.startSignIn('web', `http://127.0.0.1:${port}`, 'web')
+        await service.startSignIn(accountClient(), `http://127.0.0.1:${port}`, 'web')
         const authorizeUrl = await waitForAuthorizeUrl(service)
         send(res, 200, authorizeUrl === undefined ? { error: 'authorize-url-unavailable' } : { authorizeUrl })
       } catch (error) {

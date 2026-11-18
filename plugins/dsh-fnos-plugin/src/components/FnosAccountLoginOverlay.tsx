@@ -53,24 +53,31 @@ type Translate = (key: FnosLocaleKey) => string
  * 打开：」等）**不含**这些词，另有一道类名排除兜底。
  */
 const SIGN_IN_MARKERS = [
+  /*
+    **只认官方的长句，不认单字「登录」。**
+
+    单字判据会把**任何**带这个词的对话框都当成官方登录框——插件装卸载、配置类
+    弹框里出现「登录」，用户的屏幕就被顶成「填写重定向地址」，而他根本没想登录。
+    官方那两个屏各有一句独有文案，够用。
+  */
   // 中文
-  '登录 DeepSeek 账号', '等待登录', '登录',
+  '登录 DeepSeek 账号', '等待登录',
   // 英文
-  'Sign in to DeepSeek account', 'Waiting for sign in', 'Sign in',
+  'Sign in to DeepSeek account', 'Waiting for sign in',
   // 德文
-  'Bei DeepSeek-Konto anmelden', 'Warten auf Anmeldung', 'Anmelden',
+  'Bei DeepSeek-Konto anmelden', 'Warten auf Anmeldung',
   // 西班牙文
-  'Iniciar sesión en la cuenta de DeepSeek', 'Esperando el inicio de sesión', 'Iniciar sesión',
+  'Iniciar sesión en la cuenta de DeepSeek', 'Esperando el inicio de sesión',
   // 法文
-  'Se connecter au compte DeepSeek', 'En attente de connexion', 'Se connecter',
+  'Se connecter au compte DeepSeek', 'En attente de connexion',
   // 意大利文
-  "Accedi all'account DeepSeek", 'In attesa di accesso', 'Accedi',
+  "Accedi all'account DeepSeek", 'In attesa di accesso',
   // 日文
-  'DeepSeek アカウントにログイン', 'サインインを待っています', 'ログイン',
+  'DeepSeek アカウントにログイン', 'サインインを待っています',
   // 韩文
-  'DeepSeek 계정으로 로그인', '로그인 대기 중', '로그인',
+  'DeepSeek 계정으로 로그인', '로그인 대기 중',
   // 俄文
-  'Вход в аккаунт DeepSeek', 'Ожидание входа', 'Войти',
+  'Вход в аккаунт DeepSeek', 'Ожидание входа',
 ]
 
 /**
